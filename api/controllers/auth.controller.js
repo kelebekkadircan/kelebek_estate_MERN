@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt'
 import prisma from '../lib/prisma.js';
+import jwt from 'jsonwebtoken';
+
 
 
 export const register = async (req, res) => {
@@ -22,12 +24,12 @@ export const register = async (req, res) => {
         })
         console.log(newUser);
 
-        res.status(201).json({ message: 'User created successfully' })
+        res.status(201).json({ newUser, message: 'User created successfully' })
 
     }
 
     catch (err) {
-        res.status(500).json({ message: 'Fail to create user' })
+        res.status(500).json({ message: err.message })
     }
 
 }
@@ -53,11 +55,26 @@ export const login = async (req, res) => {
         if (!isPasswordCorrect) {
             return res.status(500).json({ message: 'Invalid credentials' })
         }
+        //ms cinsinden bir hafta oluşturup maxAge ile cookie nin ömrünü belirledik
+        const aged = 1000 * 60 * 60 * 24 * 7;
 
         //create a token
-        res.setHeader("Set-Cookie", "test=" + "myValue")
+        // jwt.sign ile token oluşturuyoruz 
+        // ilk parametre payload ikinci parametre ise secret key üçüncü parametre ise tokenin ömrü
+        const token = jwt.sign({
+            id: user.id,
+            isAdmin: true
+        }, process.env.JWT_SECRET_KEY, { expiresIn: aged })
 
-        res.status(200).json({ message: 'Login successful' })
+        const { password: userPassword, ...rest } = user
+
+        // cookie parser sayesinde res.cookie ile cookie oluşturabiliriz 
+        // ilk parametre cookie nin adı ikinci parametre ise değeri
+        // üçüncü parametre ise cookie nin özellikleri
+        res.cookie("token", token, {
+            httpOnly: true,
+            maxAge: aged
+        }).status(200).json({ rest })
 
     } catch (err) {
         console.log(err);
@@ -70,5 +87,8 @@ export const login = async (req, res) => {
 
 }
 export const logout = (req, res) => {
+
+
+    res.clearCookie('token').status(200).json({ message: 'Logged out SUCCESSFULL' })
 
 }
